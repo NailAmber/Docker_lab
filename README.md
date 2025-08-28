@@ -3,24 +3,26 @@
 [![Repo Size](https://img.shields.io/github/repo-size/NailAmber/Docker_lab)](https://github.com/NailAmber/Docker_lab)
 [![Language](https://img.shields.io/badge/lang-Python%20%2B%20Docker-blue)]()
 
-A compact, well-documented Docker + Python lab: a minimal Python application packaged with Docker to demonstrate containerization best-practices, reproducible builds, testing, and a clean developer workflow.
+A compact Docker + Python lab: a minimal Flask application packaged with Docker to demonstrate containerization best-practices, reproducible builds, testing, linting and a simple CI image-scan pipeline.
 
 ---
 
 ## Project summary
 
 This repository contains:
-- A small Python application (service or script).
-- A Dockerfile to build a reproducible image.
-- Tests (pytest-compatible) and a simple dev workflow.
+- A small Flask application (app.py) with a health endpoint.
+- A two-stage Dockerfile that builds wheels in a builder stage and installs them into a slim runtime image.
+- Tests (pytest) and a development requirements file.
+- A CI workflow (github_workflows_ci.yml) that runs tests, lint and scans the built image with Trivy.
 
 ---
 
 ## Quick facts
 
 - Language: Python (3.13 in the Dockerfile)
-- Container image: built with a two-stage image that builds wheels then installs them into a slim runtime
-- Recommended ports: 8000 (common default)
+- Container image: two-stage build (builder -> runtime), wheels pre-built in the builder
+- Exposed port: 8000
+- CI: GitHub Actions workflow included (github_workflows_ci.yml)
 
 ---
 
@@ -33,122 +35,96 @@ This repository contains:
 
 2. Run container (example uses port 8000)
    ```bash
-   docker run --rm -p 8000:8000 --name docker_lab_local nailamber/docker_lab:local
+   docker run --rm -p 8000:8000 --name docker_lab_local docker_lab:local
    ```
 
 3. Verify
-   - Open: http://localhost:8000/ (change port/path if your app differs)
-   - Or:
+   - Open: http://localhost:8000/
+   - Health endpoint:
      ```bash
-     docker logs -f docker_lab_local
      curl -sS http://localhost:8000/healthz || true
      ```
 
+Notes:
+- The runtime image includes `tini` to improve signal handling when running Gunicorn.
+- The Dockerfile sets reasonable HEALTHCHECK settings so orchestrators can determine container health.
+
 ---
 
-## Development workflow
+## Development workflow (run locally)
 
-Run locally (without Docker)
 1. Create virtualenv & install
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
 
-2. Run app (example)
+2. Run app locally (dev)
    ```bash
-   python -m app        # or `python app/main.py` — use the repository's entrypoint
+   # run Flask built-in server for development
+   python -m app
+   ```
+
+3. Run tests
+   ```bash
+   pytest -q
+   ```
+
+4. Lint / format
+   ```bash
+   ruff check .
+   black .
    ```
 
 ---
 
-## Dockerfile — explanation
+## Dockerfile — summary of important choices
 
-This repository's Dockerfile implements a two-stage build (builder -> runtime) using python:3.13-slim. Below I explain what each part does, why it's there, and practical recommendations tied to the exact Dockerfile you have.
+This repository's Dockerfile implements a two-stage build:
 
-1) Base and builder stage
-- FROM python:3.13-slim AS builder
-  - Uses the slim image for a smaller build environment. Pinning to a specific Python minor (3.13) is good for reproducibility.
-- ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
-  - Disables pip cache and version check to reduce image size and noisy output during build.
-- apt-get install build-essential
-  - Installs build tools required to compile wheels for packages with native extensions. These are installed only in the builder stage which keeps the final runtime image smaller.
-- COPY requirements.txt .
-- RUN pip wheel --wheel-dir /wheels -r requirements.txt
-  - Builds wheels for all dependencies and stores them in /wheels. Advantages:
-    - Deterministic installs in the final stage (no network needed if wheels are present).
-    - Faster installs in the runtime stage because pip can use pre-built wheels.
-  - Caveat:
-    - Wheels produced here must be compatible with the target runtime platform. If you build on a different platform (e.g., macOS) or for multiple architectures, use docker buildx or a manylinux builder to produce correct wheels.
+Builder stage
+- Uses `python:3.13-slim` and installs build-essential to produce wheels.
+- Builds wheels with `pip wheel --wheel-dir /wheels -r requirements.txt`. This helps produce deterministic installs and reduces the need for network access in the runtime stage.
 
-2) Runtime stage
-- FROM python:3.13-slim
-  - Keeps runtime base small and consistent with the builder.
-- WORKDIR /app
-- ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 APP_ENV=prod
-  - Good defaults: avoids .pyc files and ensures logs are not buffered.
-- RUN useradd -m app && mkdir -p /app && chown -R app:app /app
-  - Creates a non-root user `app` and ensures /app ownership. Running as non-root improves container security.
-  - Note: Because files are copied later, make sure ownership remains correct for any files added after this command (either copy as root and chown, or chown during copy).
-- COPY --from=builder /wheels /wheels
-  - Brings pre-built wheels into the runtime image so we can install offline.
-- COPY requirements.txt .
-- RUN pip install --no-index --find-links=/wheels -r requirements.txt && rm -rf /wheels
-  - Installs dependencies from the local wheel cache with --no-index to avoid hitting PyPI, then removes wheels to save space.
-  - Suggestion: add --no-cache-dir to pip installs here as well for cleanliness, though PIP_NO_CACHE_DIR is already set in builder; you might set it in this stage too.
-- COPY . .
-  - Copies application code into /app. For better cache utilization, consider copying only what's needed, or copying requirements first (already done) and then source to maximize layer reuse.
-- USER app
-  - Drops privileges to run the process as non-root. Confirm files required at runtime are readable/executable by `app`.
-- EXPOSE 8000
-  - Documents the port the app serves on.
-- HEALTHCHECK
-  - The Dockerfile uses a Python one-liner to check the /healthz endpoint:
-    HEALTHCHECK --interval=10s --timeout=2s --retries=3 --start-period=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz').read()" || exit 1
-  - This validates the app is responding. Notes and improvements:
-    - The current timeout (2s) is aggressive; increase it (e.g., --timeout=5s) if startup can be slow.
-    - Because the HEALTHCHECK runs as the image's default user, ensure python and urllib are available and the user has permission to perform the request.
-    - Using curl (if available) or a tiny script included in the image can make the check clearer; alternatively use the exec-form JSON array to avoid shell parsing quirks.
-    - Example safer form:
-      HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -f http://127.0.0.1:8000/healthz || exit 1
-    - If you keep the Python check, prefer:
-      HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["python", "-c", "import sys,urllib.request; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else sys.exit(1)"]
-- ENTRYPOINT ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
-  - Using exec-form ENTRYPOINT is correct: it preserves signals and PID 1 behavior for Gunicorn. Gunicorn handles graceful shutdowns itself.
-  - Consider running the container with an init process (tini). Two options:
-    - Add tini in the image and set ENTRYPOINT to ["tini", "--", "gunicorn", ...]
-    - Or instruct users to run docker with --init (docker run --init ...) to ensure proper reaping of child processes and signal forwarding.
-  - Keep gunicorn configuration in gunicorn.conf.py so you can control workers, timeouts, and logging.
-
-3) Practical recommendations & polish items
-- LABELs: add standard OCI labels for source, authorship and version:
-  ```dockerfile
-  LABEL org.opencontainers.image.source="https://github.com/NailAmber/Docker_lab"
-  LABEL org.opencontainers.image.licenses="MIT"
+Runtime stage
+- Also uses `python:3.13-slim` for consistency.
+- Adds standard OCI LABELs (source, license).
+- Installs `tini` for PID 1 signal forwarding and process reaping.
+- Copies prebuilt wheels from the builder and installs them with `--no-index --find-links=/wheels --no-cache-dir`.
+- Creates a non-root user `app` and ensures `/app` ownership (there's an explicit `chown -R app:app /app` after copying sources).
+- Uses an exec-form ENTRYPOINT that launches `tini` and `gunicorn`:
   ```
-- .dockerignore: ensure you exclude .venv, tests, docs, .git to keep context small (see recommended .dockerignore below).
-- Buildx/multi-arch: if you plan to publish multi-arch images, build wheels in a manylinux container or use docker buildx to produce compatible artifacts.
-- Ownership and permissions: because you create `app` user before copying, verify that files copied into the image are owned/readable by `app`. If necessary, chown the files after copying, or create and use a builder that sets permissions as part of the copy step.
-- Security: prefer minimal base images and strip apt caches in the builder (already done). If you add runtime packages, remove apt lists after install.
-- Reproducibility: pin dependency versions in requirements.txt and optionally include a lock file or report the exact pip/pip-tools output used to build wheels.
+  ENTRYPOINT ["tini", "--", "gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+  ```
+- Includes a conservative HEALTHCHECK against `/healthz` with a longer start-period and timeout to avoid flapping checks during startup.
 
-4) Example small improvements applied to this Dockerfile (suggested minimal patch)
-```dockerfile
-# after copying sources, ensure app owns files (if copy performed as root)
-RUN chown -R app:app /app
-
-# a slightly more conservative healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["python", "-c", "import sys,urllib.request; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/healthz').status==200 else sys.exit(1)"]
-```
+Why these choices matter
+- Two-stage builds keep final images small and avoid shipping build tools.
+- Prebuilt wheels improve reproducibility and speed of final installs.
+- Running as non-root and using `tini` improves container security and robustness.
+- A HEALTHCHECK helps orchestrators (and you) detect non-responsive containers sooner.
 
 ---
 
-## .dockerignore (recommended)
+## Tests, linting & CI
 
-Include a `.dockerignore` at repo root to keep the image context small and avoid leaking secrets:
+- Tests are written with pytest (see `tests/`).
+- Linting is configured with ruff and code formatting with black (dev tools listed in `requirements-dev.txt`).
+- A GitHub Actions workflow is included as `github_workflows_ci.yml` which:
+  - Installs dependencies
+  - Runs tests and lints
+  - Builds the Docker image
+  - Runs a Trivy scan against the built image
 
+This demonstrates a lightweight CI pipeline that can be extended to publish and sign images.
+
+---
+
+## .dockerignore
+
+To keep build contexts small and avoid leaking local files, the repository includes a `.dockerignore` that excludes:
 ```
 __pycache__
 *.pyc
@@ -163,79 +139,55 @@ docs/
 
 ---
 
-## CI / GitHub Actions (recommended)
+## Security & supply chain notes
 
-Add a lightweight workflow to build, test, and scan:
-
-- Build and run tests on push/PR
-- Build image and run Trivy scan on protected branch
-- Push to registry only from main with signed tags (cosign)
-
-Example pipeline steps:
-1. checkout
-2. setup-python
-3. pip install -r requirements-dev.txt
-4. pytest
-5. docker build (cache + metadata)
-6. trivy image scan
-7. push
+- Do not bake secrets into images; use environment variables, secret managers or orchestration-level secrets at runtime.
+- Run `trivy` locally or in CI to detect vulnerabilities:
+  ```bash
+  trivy image docker_lab:local
+  ```
+- Consider signing released images (cosign) and publishing provenance attestations for production deployment.
 
 ---
 
-## Testing & quality gates
+## Deployment / demo tips
 
-- Unit tests: run on every push (fast)
-- Integration/E2E: run in CI on staging environment or in container with dependencies mocked
-- Linting: flake8/ruff + black formatting as pre-commit hooks
-- Security scanning: trivy, bandit
-- Dependency checks: pip-audit or `safety`
+- docker-compose (local):
+  ```yaml
+  version: "3.8"
+  services:
+    app:
+      build: .
+      image: docker_lab:local
+      ports:
+        - "8000:8000"
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+        interval: 30s
+        timeout: 5s
+        retries: 3
+  ```
 
-Add pre-commit config and ensure tests + linters are required before merge.
-
----
-
-## Image security & scanning
-
-- Run `trivy image nailamber/docker_lab:local` locally or in CI.
-- Sign images with cosign and use Notation/OCI attestations for provenance.
-- Use minimal base images and remove package manager caches after install.
-- Avoid baking secrets into image — mount secrets at runtime or use secret managers.
-
----
-
-## Deployment notes
-
-docker-compose (local multi-service)
-```yaml
-version: "3.8"
-services:
-  app:
-    image: nailamber/docker_lab:local
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - PORT=8000
-      - ENV=dev
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-```
-
-Kubernetes (simple manifest):
-- Provide Deployment with resource requests/limits, liveness/readiness probes, and PodDisruptionBudget.
-- Use ConfigMaps/Secrets for config and environment settings.
+- Kubernetes:
+  - Add a Deployment with resource requests/limits, readiness and liveness probes using `/healthz`.
+  - Use ConfigMaps and Secrets to inject configuration and secrets.
 
 ---
 
 ## How to demo this in an interview
 
-1. 30s elevator: describe goals (containerization, reproducible builds, tests, security).
-2. Show the Dockerfile and explain why it's multi-stage, non-root, and cache-friendly.
-3. Build the image locally and run it (show logs, curl a health endpoint).
-4. Run tests and show CI status (or run the local GitHub Actions runner snippet).
-5. Show a quick `trivy` scan and explain how you'd gate deployments on scan results.
+1. 30s elevator: goals — containerization, reproducible builds, tests, linting, CI and basic security scanning.
+2. Show the Dockerfile and explain the multi-stage build, wheel-building, non-root user, tiny init (`tini`) and the HEALTHCHECK.
+3. Build and run the image locally and curl `/healthz`.
+4. Run tests locally (`pytest`) and show the CI workflow run in GitHub Actions.
+5. Show `trivy` output and explain how you'd gate deployments on scan results.
 
-Keep it to a 5–7 minute demo: code -> build -> run -> test -> scan.
+---
+
+## Next improvements (ideas)
+- Add pre-commit hooks (ruff/black) to enforce formatting and linting locally.
+- Add pip-audit or safety to CI for dependency checks.
+- Add a LICENSE (e.g., MIT) to make reuse clear.
+- Move CI workflow into `.github/workflows/` with canonical filename if you prefer GitHub defaults.
+
+---
