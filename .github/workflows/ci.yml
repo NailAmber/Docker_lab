@@ -22,7 +22,6 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Run tests
         run: |
-          PYTHONPATH=.
           pytest -q
       - name: Lint (ruff)
         run: |
