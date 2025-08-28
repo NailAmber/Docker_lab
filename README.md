@@ -180,11 +180,3 @@ docs/
 5. Show `trivy` output and explain how you'd gate deployments on scan results.
 
 ---
-
-## Next improvements (ideas)
-- Add pre-commit hooks (ruff/black) to enforce formatting and linting locally.
-- Add pip-audit or safety to CI for dependency checks.
-- Add a LICENSE (e.g., MIT) to make reuse clear.
-- Move CI workflow into `.github/workflows/` with canonical filename if you prefer GitHub defaults.
-
----
