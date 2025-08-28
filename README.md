@@ -1,8 +1,5 @@
 # Docker_lab
 
-[![Repo Size](https://img.shields.io/github/repo-size/NailAmber/Docker_lab)](https://github.com/NailAmber/Docker_lab)
-[![Language](https://img.shields.io/badge/lang-Python%20%2B%20Docker-blue)]()
-
 A compact Docker + Python lab: a minimal Flask application packaged with Docker to demonstrate containerization best-practices, reproducible builds, testing, linting and a simple CI image-scan pipeline.
 
 ---
