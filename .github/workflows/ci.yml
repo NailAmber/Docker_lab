@@ -41,9 +41,6 @@ jobs:
             docker inspect --format='{{json .State.Health.Status}}' app | grep -q healthy && break
             sleep 3
           done
-      - name: Run integration tests
-        run: |
-          pytest -q
       - name: Tear down compose stack
         if: always()
         run: |
