@@ -26,6 +26,28 @@ jobs:
       - name: Lint (ruff)
         run: |
           ruff check app
+          
+  integration-test:
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start services with docker-compose
+        run: |
+          docker-compose up --build -d
+      - name: Wait for app to be healthy
+        run: |
+          for i in {1..10}; do
+            docker inspect --format='{{json .State.Health.Status}}' app | grep -q healthy && break
+            sleep 3
+          done
+      - name: Run integration tests
+        run: |
+          pytest -q
+      - name: Tear down compose stack
+        if: always()
+        run: |
+          docker-compose down
 
   build-and-scan:
     needs: test-and-lint
