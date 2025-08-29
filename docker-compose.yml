@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17
+    container_name: mydb
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: testdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: app
+    restart: always
+    ports:
+      - "8081:8000"
+    networks:
+      - backend_net
+  
+volumes:
+  db_data:
+
+networks:
+  backend_net:
