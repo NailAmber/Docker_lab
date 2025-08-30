@@ -134,8 +134,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 
 A simple `backup.sh` script is provided:
 - Dumps PostgreSQL DB (`pg_dump`)
-- Archives with timestamp (`tar.gz`)
-- Saves to mounted volume
+- Archives with timestamp (`.gz`)
 - (Can be run via cron / GitHub Actions job)
 
 ---
