@@ -75,7 +75,7 @@ jobs:
 
   deploy:
     needs: 
-      - build-test-scan 
+      - build-and-scan 
       - integration-test
     runs-on: ubuntu-latest
     steps:
