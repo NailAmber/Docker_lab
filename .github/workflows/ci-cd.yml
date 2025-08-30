@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: |
-          docker build -t $IMAGE:latest -t $IMAGE:${{ github.sha }} .
+          docker build -t $IMAGE:latest -t $IMAGE:${{ github.sha }} app
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@0.20.0
         with:
