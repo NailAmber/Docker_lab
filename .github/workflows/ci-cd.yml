@@ -85,6 +85,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Deploy with Docker Compose
         run: |
-          echo "Pulling image $IMAGE"
-          docker pull $IMAGE
+          echo "Pulling image ${{ env. IMAGE }}"
+          docker pull ${{ env.IMAGE }}:latest
           docker compose -f docker-compose.yml up -d
