@@ -53,7 +53,7 @@ jobs:
     needs: test-and-lint
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.set-image.outpust.IMAGE }}
+      image: ${{ steps.set-image.outputs.IMAGE }}
     steps:
       - id: set-image
         run: |
