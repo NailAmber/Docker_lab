@@ -91,7 +91,7 @@ Default DB credentials (from compose):
 
 ## 🔄 CI/CD Pipeline
 
-GitHub Actions workflow (`.github/workflows/ci.yml`):
+GitHub Actions workflow (`.github/workflows/ci-cd.yml`):
 
 1. **Test & Lint**
    - Install deps
