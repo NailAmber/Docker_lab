@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:17
-    container_name: mydb
     restart: always
     environment:
       POSTGRES_USER: user
@@ -11,19 +10,59 @@ services:
       - db_data:/var/lib/postgresql/data
     networks:
       - backend_net
+  
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: app
     restart: always
     ports:
       - "8081:8000"
+    depends_on:
+      - db
     networks:
       - backend_net
   
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app
+      - node-exporter
+    networks:
+      - backend_net
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - backend_net
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: always
+    ports:
+      - "9100:9100"
+    networks:
+      - backend_net
+
+
 volumes:
   db_data:
+  grafana_data:
+  prometheus_data:
 
 networks:
   backend_net:
+
