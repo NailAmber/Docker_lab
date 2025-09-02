@@ -17,7 +17,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends tini \
   && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m app && mkdir -p /app && chown -R app:app /app
+RUN useradd -m app \
+  && mkdir -p /app && chown -R app:app /app \
+  && mkdir -p /tmp/metrics && chown -R app:app /tmp/metrics
+
 COPY --from=builder /wheels /wheels
 COPY requirements.txt .
 RUN pip install --no-index --find-links=/wheels --no-cache-dir -r requirements.txt && rm -rf /wheels

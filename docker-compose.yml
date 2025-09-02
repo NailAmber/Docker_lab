@@ -22,12 +22,16 @@ services:
       - db
     networks:
       - backend_net
+    environment:
+      - prometheus_multiproc_dir=/tmp/metrics
+    volumes:
+      - metrics_data:/tmp/metrics
   
   prometheus:
     image: prom/prometheus:latest
     restart: always
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -42,6 +46,7 @@ services:
     restart: always
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     ports:
       - "3000:3000"
     depends_on:
@@ -62,6 +67,7 @@ volumes:
   db_data:
   grafana_data:
   prometheus_data:
+  metrics_data:
 
 networks:
   backend_net:
