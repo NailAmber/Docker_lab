@@ -41,7 +41,7 @@ jobs:
       - name: Wait for app to be healthy
         run: |
           for i in {1..10}; do
-            docker inspect --format='{{json .State.Health.Status}}' app | grep -q healthy && break
+            docker inspect --format='{{json .State.Health.Status}}' docker_lab-app | grep -q healthy && break
             sleep 3
           done
       - name: Tear down compose stack
