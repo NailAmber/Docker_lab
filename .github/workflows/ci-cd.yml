@@ -76,12 +76,15 @@ jobs:
 
       - name: Verify Prometheus scrapes Flask
         run: |
-          if curl -s http://localhost:9090/api/v1/targets | grep -q '"health":"up"'; then
-            echo "Prometheus scrapes Flask"
-          else
-            echo "Prometheus does not scrape Flask"
-            exit 1
-          fi
+          for i in {1..10}; do 
+            if curl -s http://localhost:9090/api/v1/targets | grep -q '"health":"up"'; then
+              echo "Prometheus scrapes Flask"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Prometheus does not scrape Flask"
+          exit 1
 
       - name: Wait for Grafana to be healthy
         run: |
@@ -99,12 +102,15 @@ jobs:
 
       - name: Verify Grafana sees Prometheus
         run: |
-          if curl -s -u admin:admin http://localhost:3000/api/datasources | grep -q "Prometheus"; then
-            echo "Grafana has Prometheus datasource"
-          else
-            echo "Grafana does not have Prometheus datasource"
-            exit 1
-          fi
+          for i in {1..10}; do
+            if curl -s -u admin:admin http://localhost:3000/api/datasources | grep -q "Prometheus"; then
+              echo "Grafana has Prometheus datasource"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Grafana does not have Prometheus datasource"
+          exit 1
 
       - name: Tear down compose stack
         if: always()
