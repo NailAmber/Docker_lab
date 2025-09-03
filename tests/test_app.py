@@ -21,6 +21,11 @@ def test_index(client):
 
 
 def test_healthz(client):
-    rv = client.get("/healthz")
+    rv = client.get("/health")
     assert rv.status_code == 200
     assert rv.get_data(as_text=True) == "ok"
+
+
+def test_metrics(client):
+    rv = client.get("/metrics")
+    assert rv.status_code == 200

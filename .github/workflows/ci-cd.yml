@@ -30,10 +30,12 @@ jobs:
       - name: Lint (ruff)
         run: |
           ruff check app
+          ruff check tests
 
       - name: Format (black)
         run: |
           black --check app
+          black --check tests
           
   integration-test:
     needs: test-and-lint
