@@ -10,7 +10,12 @@ services:
       - db_data:/var/lib/postgresql/data
     networks:
       - backend_net
-  
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3 
+
   app:
     build:
       context: ./app

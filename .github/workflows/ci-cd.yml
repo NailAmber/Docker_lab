@@ -46,6 +46,19 @@ jobs:
       - name: Build and start services with docker-compose
         run: |
           docker compose up --build -d
+      - name: Wait for Postgres to be healthy
+        run: |
+          for i in {1..10}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' docker_lab-db-1 2>/dev/null || echo "no-health")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Postgres is healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Postgres did not become healthy after 10 attempts"
+          exit 1
       
       - name: Database backup script test
         run: |
