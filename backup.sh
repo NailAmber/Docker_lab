@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-CONTAINER="${CONTAINER:-mydb}"
+CONTAINER="${CONTAINER:-docker_lab-db-1}"
 DB_USER="${DB_USER:-user}"
 DB_NAME="${DB_NAME:-testdb}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"

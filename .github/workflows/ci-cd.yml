@@ -46,6 +46,12 @@ jobs:
       - name: Build and start services with docker-compose
         run: |
           docker compose up --build -d
+      
+      - name: Database backup script test
+        run: |
+          ./backup.sh
+          ls | grep -q backups
+          ls backups | grep -q backup
 
       - name: Wait for Flask-app to be healthy
         run: |
