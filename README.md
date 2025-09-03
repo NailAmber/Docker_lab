@@ -7,7 +7,7 @@ A compact **DevOps playground project**: a minimal Flask application packaged in
 ## 🚀 Project Overview
 
 This repository includes:
-- **Flask application** (`app.py`) exposing a `/healthz` endpoint.
+- **Flask application** (`app.py`) exposing a `/health` endpoint.
 - **Two‑stage Dockerfile** (`app/Dockerfile`) — reproducible builds with prebuilt wheels, tiny runtime image, non‑root user, and `tini` init.
 - **Unit & integration tests** (Pytest).
 - **GitHub Actions CI/CD pipeline** with:
