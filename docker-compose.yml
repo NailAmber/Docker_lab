@@ -40,6 +40,11 @@ services:
       - node-exporter
     networks:
       - backend_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   grafana:
     image: grafana/grafana:latest
@@ -53,6 +58,11 @@ services:
       - prometheus
     networks:
       - backend_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   node-exporter:
     image: prom/node-exporter:latest

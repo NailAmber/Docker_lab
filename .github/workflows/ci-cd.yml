@@ -11,21 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r app/requirements.txt
           pip install -r app/requirements-dev.txt
+
       - name: Run tests
         run: |
           pytest -q
+
       - name: Lint (ruff)
         run: |
           ruff check app
+
       - name: Format (black)
         run: |
           black --check app
@@ -35,22 +40,70 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Build and start services with docker-compose
         run: |
           docker compose up --build -d
-      - name: Wait for app to be healthy
+
+      - name: Wait for Flask-app to be healthy
         run: |
           for i in {1..10}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' docker_lab-app-1 2>/dev/null || echo "no-health")
             echo "Attempt $i: $STATUS"
             if [ "$STATUS" = "healthy" ]; then
-              echo "Container is healthy"
+              echo "Flask-app is healthy"
               exit 0
             fi
             sleep 3
           done
-          echo "Container did not become healthy after 10 attempts"
+          echo "Flask-app did not become healthy after 10 attempts"
           exit 1
+      - name: Wait for Prometheus to be healthy
+        run: |
+          for i in {1..10}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' docker_lab-prometheus-1 2>/dev/null || echo "no-health")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Prometheus is healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Prometheus did not become healthy after 10 attempts"
+          exit 1
+
+      - name: Verify Prometheus scrapes Flask
+        run: |
+          if curl -s http://localhost:9090/api/v1/targets | grep -q '"health":"up"'; then
+            echo "Prometheus scrapes Flask"
+          else
+            echo "Prometheus does not scrape Flask"
+            exit 1
+          fi
+
+      - name: Wait for Grafana to be healthy
+        run: |
+          for i in {1..10}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' docker_lab-grafana-1 2>/dev/null || echo "no-health")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Grafana is healthy"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Grafana did not become healthy after 10 attempts"
+          exit 1
+
+      - name: Verify Grafana sees Prometheus
+        run: |
+          if curl -s -u admin:admin http://localhost:3000/api/datasources | grep -q "Prometheus"; then
+            echo "Grafana has Prometheus datasource"
+          else
+            echo "Grafana does not have Prometheus datasource"
+            exit 1
+          fi
+
       - name: Tear down compose stack
         if: always()
         run: |
@@ -67,9 +120,11 @@ jobs:
           IMAGE="ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
           echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
+
       - name: Build Docker image
         run: |
           docker build -t ${{ steps.set-image.outputs.IMAGE }}:latest -t ${{ steps.set-image.outputs.image }}:${{ github.sha }} app
+
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@0.20.0
         with:
@@ -77,8 +132,10 @@ jobs:
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
+
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Push Docker image
         run: |
           docker push ${{ steps.set-image.outputs.IMAGE }}:latest
@@ -92,8 +149,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Deploy with Docker Compose
         run: |
           echo "Deploying ${{ needs.build-and-scan.outputs.IMAGE }}:latest"

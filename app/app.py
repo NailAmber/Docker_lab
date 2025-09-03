@@ -84,8 +84,8 @@ def metrics():
     return Response(data, mimetype=CONTENT_TYPE_LATEST)
 
 
-@app.route("/healthz", methods=["GET"])
-def healthz():
+@app.route("/health", methods=["GET"])
+def health():
     return "ok", 200
 
 
