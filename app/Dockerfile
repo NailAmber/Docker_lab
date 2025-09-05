@@ -10,7 +10,6 @@ RUN pip install --upgrade pip setuptools wheel
 
 # Install temp build deps
 RUN apt-get update \
-	&& apt-get upgrade \
 	&& apt-get install -y --no-install-recommends build-essential \
 	&& rm -rf /var/lib/apt/lists/*
 
@@ -38,6 +37,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install tini for better signal handling
 RUN apt-get update \
+	&& apt-get upgrade \
 	&& apt-get install -y --no-install-recommends tini curl \
 	&& apt-get purge -y --auto-remove \
 	&& rm -rf /var/lib/apt/lists/*
