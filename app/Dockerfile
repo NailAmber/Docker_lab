@@ -10,6 +10,7 @@ RUN pip install --upgrade pip setuptools wheel
 
 # Install temp build deps
 RUN apt-get update \
+	&& apt-get upgrade \
 	&& apt-get install -y --no-install-recommends build-essential \
 	&& rm -rf /var/lib/apt/lists/*
 
