@@ -1,40 +1,70 @@
-FROM python:3.13-slim AS builder
+# ----- Build Stage -----
+FROM python:3.13-slim-bookworm AS builder
 WORKDIR /app
+
+# Speed up pip
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+# Update pip, setuptools, wheel first
+RUN pip install --upgrade pip setuptools wheel
+
+# Install temp build deps
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends build-essential \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Copy only requirements.txt first for better caching
 COPY requirements.txt .
+
+# Build wheels
 RUN pip wheel --wheel-dir /wheels -r requirements.txt
 
-FROM python:3.13-slim
+
+# ----- Runtime Stage -----
+FROM python:3.13-slim-bookworm
+
 LABEL org.opencontainers.image.source="https://github.com/NailAmber/Docker_lab"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 APP_ENV=prod
 
-# Optional: install tini for better signal handling (small extra layer)
+# Environment vars for Python and runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1 \
+	PIP_NO_CACHE_DIR=1 \
+	APP_ENV=prod \
+	PATH="/home/app/.local/bin:$PATH"
+
+# Install tini for better signal handling
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends tini \
-  && rm -rf /var/lib/apt/lists/*
+	&& apt-get install -y --no-install-recommends tini curl \
+	&& apt-get purge -y --auto-remove \
+	&& rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m app \
-  && mkdir -p /app && chown -R app:app /app \
-  && mkdir -p /tmp/metrics && chown -R app:app /tmp/metrics
+# Create non-root user and app dirs
+RUN useradd -m -d /app app \
+	&& mkdir -p /tmp/metrics \
+	&& chown -R app:app /tmp/metrics
 
+# Copy wheels and requirements
 COPY --from=builder /wheels /wheels
 COPY requirements.txt .
-RUN pip install --no-index --find-links=/wheels --no-cache-dir -r requirements.txt && rm -rf /wheels
-COPY . .
 
-# Ensure runtime user owns files copied into the image
-RUN chown -R app:app /app
+# Install dependencies from wheels
+RUN pip install --no-index --find-links=/wheels --no-cache-dir -r requirements.txt \
+	&& rm -rf /wheels
+
+# Copy source code (with correct ownership)
+COPY --chown=app:app . . 
 
 USER app
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["python", "-c", "import sys,urllib.request as u; sys.exit(0) if u.urlopen('http://127.0.0.1:8000/health').status==200 else sys.exit(1)"]
+	CMD curl -fs http://127.0.0.1:8000/health || exit 1
 
-# Use tini to forward signals and reap processes
-ENTRYPOINT ["tini", "--", "gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+# Use tini as entrypoint, CMD for app 
+ENTRYPOINT ["tini", "--"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
+

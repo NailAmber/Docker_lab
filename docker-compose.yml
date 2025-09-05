@@ -1,3 +1,9 @@
+x-healthcheck-default: &default-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 3
+
+
 services:
   db:
     image: postgres:17
@@ -12,10 +18,8 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "user", "-d", "testdb"]
-      interval: 10s
-      timeout: 5s
-      retries: 3 
-
+      <<: *default-healthcheck
+  
   app:
     build:
       context: ./app
@@ -36,7 +40,7 @@ services:
     image: prom/prometheus:v3.5.0
     restart: always
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/:/etc/prometheus/:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -47,9 +51,7 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      <<: *default-healthcheck
 
   grafana:
     image: grafana/grafana:12.1
@@ -65,9 +67,7 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      <<: *default-healthcheck
 
   node-exporter:
     image: prom/node-exporter:v1.9.1
