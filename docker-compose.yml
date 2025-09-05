@@ -11,7 +11,7 @@ services:
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "pg_isready"]
+      test: ["CMD", "pg_isready", "-U", "user", "-d", "testdb"]
       interval: 10s
       timeout: 5s
       retries: 3 
@@ -33,7 +33,7 @@ services:
       - metrics_data:/tmp/metrics
   
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     restart: always
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -52,7 +52,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.1
     restart: always
     volumes:
       - grafana_data:/var/lib/grafana
@@ -70,7 +70,7 @@ services:
       retries: 3
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.9.1
     restart: always
     ports:
       - "9100:9100"
