@@ -52,7 +52,7 @@ jobs:
       - name: Define wait_health.sh
         run: |
           cat > wait_healthy.sh <<'EOS'
-          #!/usr/bin/env/ bash
+          #!/usr/bin/env bash
           set -euo pipefail
           svc="$1"; max="${2:20}"; delay="${3:-3}"
           cid="$(docker compose ps -q "$svc")"
