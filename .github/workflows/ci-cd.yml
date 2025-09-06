@@ -71,10 +71,10 @@ jobs:
           
       - name: Wait for services to be healthy
         run: |
-          ./wait_healthy.sh docker_lab-db-1 20 3
-          ./wait_healthy.sh docker_lab-app-1 20 3
-          ./wait_healthy.sh docker_lab-prometheus-1 20 3
-          ./wait_healthy.sh docker_lab-grafana-1 20 3
+          ./wait_healthy.sh db 20 3
+          ./wait_healthy.sh app 20 3
+          ./wait_healthy.sh prometheus 20 3
+          ./wait_healthy.sh grafana 20 3
 
       - name: Database backup script test
         run: |
