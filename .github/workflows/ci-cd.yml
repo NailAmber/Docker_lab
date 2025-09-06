@@ -51,8 +51,6 @@ jobs:
 
       - name: Wait for services to be healthy 
         run: |
-          set -euo pipefail
-          
           wait_healthy() {
             svc="$1" 
             max="${2:-20}"
@@ -64,13 +62,13 @@ jobs:
             fi
           
             for i in $(seq 1 "${max:-10}"); do
-              hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo no-health")
+              hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo no-health)"
               echo "[$svc] attempt $i: $hstatus"
               if [ "$hstatus" = "healthy" ]; then 
                 echo "[$svc] is healthy!"  
                 return 0
               fi
-
+             
               sleep "$delay"
             done
 
