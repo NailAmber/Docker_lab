@@ -62,12 +62,13 @@ jobs:
             echo "No container for service $svc"; exit 1
           fi
           for i in $(seq 1 "${max:-10}"); do
-            hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "no-health")
+            hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo no-health")
             echo "[$svc] attempt $i: $hstatus"
             if [ "$hstatus" = "healthy" ]; then exit 0; fi
             sleep "$delay"
           done
-          echo "[$svc] did not become healthy"; exit 1
+          echo "[$svc] did not become healthy"
+          exit 1
           EOS
           chmod +x wait_healthy.sh
           
