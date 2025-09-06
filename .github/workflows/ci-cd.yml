@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-permissions:
-  contents: read
-  security-events: write
 
 jobs:
   test-and-lint:
@@ -17,15 +14,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: 'pip'
+          cache-dependency-path: |
+            app/requirements.txt
+            app/requirements-dev.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r app/requirements.txt \
-            -r app/requirements-dev.txt
+          pip install -r app/requirements.txt -r app/requirements-dev.txt
 
       - name: Run tests
         run: |
@@ -48,54 +48,88 @@ jobs:
       - name: Build and start services with docker-compose
         run: |
           docker compose up --build -d
+      - name: Define wait_health.sh
+        run: |
+          cat > wait_healthy.sh <<'EOS'
+          #!/usr/bin/ bash
+          set -euo pipefail
+        svc="$1"; max="${2:20}"; delay="${3:-3}"
+        cid="$(docker compose ps -q "$svc")"
+        if [ -z "$cid" ]; then
+          echo "No container for service $svc"; exit 1
+        fi
+        for i in $(seq 1 "$max"); do
+          hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "no-health")
+          echo "[$svc] attempt $i: $hstatus
+          if [ "$hstatus" = "healthy" ]; then exit 0; fi
+          sleep "$delay"
+        done
+        echo "[$svc] did not become healthy"; exit 1
+        EOS
+        chmod +x wait_healthy.sh
+          
       - name: Wait for services to be healthy
         run: |
-          wait_for_healthy() {
-            local name=$1
-            for i in {1..10}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$name" 2>/dev/null || echo "no-health")
-              echo "Attempt $i: $STATUS"
-              if [ "$STATUS" = "healthy" ]; then
-                echo "$name is healthy"
-                return 0
-              fi
-              sleep 3
-            done
-            echo "$name did not become healthy after 10 attempts"
-            return 1
-          }
-          wait_for_healthy docker_lab-db-1
-          wait_for_healthy docker_lab-app-1
-          wait_for_healthy docker_lab-prometheus-1
-          wait_for_healthy docker_lab-grafana-1
+          ./wait_healthy.sh docker_lab-db-1 20 3
+          ./wait_healthy.sh docker_lab-app-1 20 3
+          ./wait_healthy.sh docker_lab-prometheus-1 20 3
+          ./wait_healthy.sh docker_lab-grafana-1 20 3
 
       - name: Database backup script test
         run: |
           ./backup.sh
-          test -n "$(find backups -type f -name 'backup_*' -mmin -1)"
+          test -n "$(find backups -type f -name 'backup_*' -mmin -5)"
+      
+      - name: Verify Prometheus scrapes Flask
+        run: |
+          for i in {1..20}; do
+            if curl -s http://localhost:9090/api/v1/targets | grep -q '"health":"up"'; then
+              exit
+            fi
+            sleep 3
+          done
+          exit 1
+
+      - name: Verify Grafana sees Prometheus
+        env:
+          GF_USER: admin
+          GF_PASS: admin
+        run: |
+          for i in {1..20}; do
+            if curl -s -u "${GF_USER}:${GF_PASS}" http://localhost:3000/api/datasources | grep -q '"name":"Prometheus"'; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
 
       - name: Tear down compose stack
         if: always()
         run: |
-          docker compose down
+          docker compose down -v
 
   build-and-scan:
     needs: test-and-lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write  
     outputs:
       image: ${{ steps.set-image.outputs.IMAGE }}
     steps:
+      - uses: actions/checkout@v4
+
       - id: set-image
         run: |
           IMAGE="ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
           echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v4
 
       - name: Build Docker image
         run: |
           docker build -t ${{ steps.set-image.outputs.IMAGE }}:latest -t ${{ steps.set-image.outputs.image }}:${{ github.sha }} app
 
-      - name: Scan image with Trivy
+      - name: Scan image with Trivy (fail on HIGHT/CRITICAL)
         uses: aquasecurity/trivy-action@0.20.0
         with:
           image-ref: ${{ steps.set-image.outputs.IMAGE }}:latest

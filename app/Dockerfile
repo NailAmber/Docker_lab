@@ -32,13 +32,12 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
 	PIP_NO_CACHE_DIR=1 \
-	APP_ENV=prod \
-	PATH="/home/app/.local/bin:$PATH"
+	APP_ENV=prod
 
 # Install tini for better signal handling
 RUN apt-get update \
+	&& apt-get upgrade -y \
 	&& apt-get install -y --no-install-recommends tini curl \
-	&& apt-get purge -y --auto-remove \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and app dirs

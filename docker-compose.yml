@@ -33,8 +33,13 @@ services:
       - backend_net
     environment:
       - prometheus_multiproc_dir=/tmp/metrics
+    tmpfs:
+      - /tmp
     volumes:
       - metrics_data:/tmp/metrics
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
   
   prometheus:
     image: prom/prometheus:v3.5.0
