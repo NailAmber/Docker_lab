@@ -76,10 +76,10 @@ jobs:
             exit 1
           }
           
-          wait_healthy.sh db 20 3
-          wait_healthy.sh app 20 3
-          wait_healthy.sh prometheus 20 3
-          wait_healthy.sh grafana 20 3
+          wait_healthy db 20 3
+          wait_healthy app 20 3
+          wait_healthy prometheus 20 3
+          wait_healthy grafana 20 3
 
       - name: Database backup script test
         run: |
