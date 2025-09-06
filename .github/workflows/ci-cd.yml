@@ -52,24 +52,24 @@ jobs:
       - name: Define wait_health.sh
         run: |
           cat > wait_healthy.sh <<'EOS'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          svc="$1" 
-          max="${2:-20}"
-          delay="${3:-3}"
-          cid="$(docker compose ps -q "$svc")"
-          if [ -z "$cid" ]; then
-            echo "No container for service $svc"; exit 1
-          fi
-          for i in $(seq 1 "${max:-10}"); do
-            hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo no-health")
-            echo "[$svc] attempt $i: $hstatus"
-            if [ "$hstatus" = "healthy" ]; then exit 0; fi
-            sleep "$delay"
-          done
-          echo "[$svc] did not become healthy"
-          exit 1
-          EOS
+#!/usr/bin/env bash
+set -euo pipefail
+svc="$1" 
+max="${2:-20}"
+delay="${3:-3}"
+cid="$(docker compose ps -q "$svc")"
+if [ -z "$cid" ]; then
+  echo "No container for service $svc"; exit 1
+fi
+for i in $(seq 1 "${max:-10}"); do
+  hstatus="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo no-health")
+  echo "[$svc] attempt $i: $hstatus"
+  if [ "$hstatus" = "healthy" ]; then exit 0; fi
+  sleep "$delay"
+done
+echo "[$svc] did not become healthy"
+exit 1
+EOS
           chmod +x wait_healthy.sh
           
       - name: Wait for services to be healthy
