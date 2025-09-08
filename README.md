@@ -8,7 +8,7 @@ This repository is designed as a **portfolio project** to demonstrate **modern D
 - ✅ Containerization (multi-stage Dockerfile, non-root user, healthchecks)
 - ✅ Multi-service orchestration (Flask, PostgreSQL, Prometheus, Grafana, node-exporter)
 - ✅ CI/CD automation (lint, test, integration test, security scan, build & deploy)
-- ✅ Observability & metrics (dashboards + alerting)
+- ✅ Observability & metrics (dashboards)
 - ✅ Security practices (Trivy scans, no-privilege containers, `.dockerignore`)
 - ✅ Backup automation for PostgreSQL
 
