@@ -24,8 +24,6 @@ config:
   theme: redux
 ---
 flowchart TD
-    host["Host"] --> Backup["Backup"] & NodeExporter["Node Exporter"] & App["Flask App"]
-    host@{ shape: rounded}
     Backup <-- pg_dump --> DB[("PostgreSQL")]
     App --> DB & Prometheus["Prometheus"]
     NodeExporter --> Prometheus
