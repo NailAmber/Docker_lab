@@ -1,93 +1,81 @@
-# Docker Lab — Flask + Docker + CI/CD + Monitoring
+# 🚀 Docker Lab — Production-Ready Flask + CI/CD + Monitoring
 
-A compact **DevOps playground project**: a minimal Flask application packaged in Docker, orchestrated with Compose, monitored with Prometheus and Grafana (including alerting), and delivered via a **full CI/CD pipeline**. The repository demonstrates **containerization, automation, observability, and best practices** for modern DevOps workflows.
+A **DevOps showcase project**:\
+A minimal Flask app packaged with **Docker**, orchestrated with **Compose**, observed with **Prometheus + Grafana**, and delivered via a **secure CI/CD pipeline**.
+
+This repository is designed as a **portfolio project** to demonstrate **modern DevOps practices**:
+
+- ✅ Containerization (multi-stage Dockerfile, non-root user, healthchecks)
+- ✅ Multi-service orchestration (Flask, PostgreSQL, Prometheus, Grafana, node-exporter)
+- ✅ CI/CD automation (lint, test, integration test, security scan, build & deploy)
+- ✅ Observability & metrics (dashboards + alerting)
+- ✅ Security practices (Trivy scans, no-privilege containers, `.dockerignore`)
+- ✅ Backup automation for PostgreSQL
 
 ---
 
-## 🚀 Project Overview
+## 📊 Architecture
 
-This repository includes:
-- **Flask application** (`app.py`) exposing `/` (demo), `/health` (readiness check), and `/metrics` (Prometheus metrics) endpoints.
-- **Two‑stage Dockerfile** (`app/Dockerfile`): reproducible builds, prebuilt wheels, tiny runtime image, non‑root user, and `tini` init.
-- **Unit & integration tests** (Pytest).
-- **GitHub Actions CI/CD pipeline**:
-  - Linting (`ruff`, `black`)
-  - Unit tests
-  - Integration tests with Compose (app + PostgreSQL + Prometheus + Grafana)
-  - Backup script verification
-  - Build and vulnerability scan (Trivy)
-  - Push to GitHub Container Registry (GHCR)
-  - Automated deployment with Docker Compose
-- **docker-compose.yml**: multi‑container orchestration (Flask app, PostgreSQL, Prometheus, Grafana, node-exporter + persistent volumes).
-- **Backup script** for PostgreSQL data (automation example).
-- **Grafana dashboard** with panels for QPS, errors, latency, and method breakdown—and built-in alerting for incident response.
+```mermaid
+---
+config:
+  layout: dagre
+  look: handDrawn
+  theme: redux
+---
+flowchart TD
+    host["Host"] --> Backup["Backup"] & NodeExporter["Node Exporter"] & App["Flask App"]
+    host@{ shape: rounded}
+    Backup <-- pg_dump --> DB[("PostgreSQL")]
+    App --> DB & Prometheus["Prometheus"]
+    NodeExporter --> Prometheus
+    Prometheus --> Grafana["Grafana Dashboards + Alerts"]
 
+```
 ---
 
 ## 🛠️ Tech Stack
 
-- **Language:** Python 3.13
-- **Framework:** Flask
+- **Language:** Python 3.13 (Flask)
 - **Database:** PostgreSQL 17
-- **Container:** Docker (multi-stage build)
-- **Orchestration:** Docker Compose
-- **Monitoring:** Prometheus, Grafana (with alerting), node-exporter
-- **CI/CD:** GitHub Actions (build → test → scan → push → deploy)
+- **Containerization:** Docker, Docker Compose
+- **CI/CD:** GitHub Actions (build → test → scan → deploy)
+- **Monitoring:** Prometheus + Grafana + node-exporter
+- **Security:** Trivy vulnerability scans
 - **Registry:** GitHub Container Registry (GHCR)
-- **Security:** Trivy vulnerability scan
 
 ---
 
-## 🔧 Local Development
+## ⚙️ Usage
 
-### Run locally (without Docker)
+### Local Development
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r app/requirements.txt
-pip install -r app/requirements-dev.txt
+pip install -r app/requirements.txt -r app/requirements-dev.txt
 python -m app
 ```
 
-### Run with Docker only
+### Docker Only
+
 ```bash
-# Build image
 docker build -t docker_lab:local ./app
-
-# Run container
-docker run --rm -p 8000:8000 --name docker_lab_local docker_lab:local
-
-# Health check
-curl -s http://localhost:8000/health
+docker run --rm -p 8000:8000 docker_lab:local
+curl http://localhost:8000/health
 ```
 
-### Run with Docker Compose (full stack: app, db, monitoring)
+### Full Stack with Compose
+
 ```bash
 docker compose up --build -d
-# App:       http://localhost:8081
+
+# Access:
+# App:        http://localhost:8081
 # Prometheus: http://localhost:9090
-# Grafana:   http://localhost:3000 (default admin/admin)
+# Grafana:    http://localhost:3000  (admin/admin)
 # Node Exporter: http://localhost:9100
-docker compose down
 ```
-
-Default DB credentials (from compose):
-- user: `user`
-- password: `pass`
-- db: `testdb`
-- host: `db` (inside Compose network)
-
----
-
-## 📦 Dockerfile Highlights
-
-- Multi‑stage build (builder → runtime)
-- Prebuilt wheels for reproducibility & speed
-- Slim runtime image, no build tools shipped
-- Runs as **non‑root** user `app`
-- Includes `tini` as PID 1 (better signal handling & process reaping)
-- HEALTHCHECK defined for `/health`
-- OCI labels for metadata
 
 ---
 
@@ -96,85 +84,81 @@ Default DB credentials (from compose):
 GitHub Actions workflow (`.github/workflows/ci-cd.yml`):
 
 1. **Test & Lint**
-   - Install deps
-   - Run unit tests with Pytest
-   - Lint with Ruff, format check with Black
+
+   - Run unit tests with pytest
+   - Lint with Ruff + format check with Black
 
 2. **Integration Test**
-   - Bring up full stack (app, Postgres, Prometheus, Grafana, node-exporter) with Compose
-   - Wait for `/health` endpoint, and for Prometheus and Grafana to be healthy
-   - Verify Prometheus scrapes Flask metrics
-   - Verify Grafana sees Prometheus datasource are configured
+
+   - Spin up Compose stack (app + db + monitoring)
+   - Wait for services to be healthy
+   - Verify metrics are scraped + Grafana datasource available
    - Backup script verification
-   - Tear down stack
 
 3. **Build & Scan**
-   - Build Docker image from `app/Dockerfile`
-   - Tag as `:latest` and with commit SHA
-   - Scan with Trivy (`CRITICAL`/`HIGH` severity)
 
-4. **Push**
-   - Login to GHCR
-   - Push both tags to `ghcr.io/nailamber/docker_lab`
+   - Build Docker image (tagged with commit SHA + `latest`)
+   - Scan image with Trivy (fail on HIGH/CRITICAL)
+   - Upload scan report to GitHub Security
 
-5. **Deploy**
-   - Login to GHCR
-   - Pull latest image
-   - Deploy via Docker Compose
+4. **Push & Deploy**
 
-👉 Images are available in **[GHCR Packages](https://github.com/NailAmber?tab=packages)**. Each commit produces a SHA‑tagged image for reproducibility & rollback.
+   - Push image to GHCR
+   - Pull + deploy with Docker Compose
 
 ---
 
-## 📊 Monitoring, Metrics & Alerting
+## 📊 Monitoring
 
-- **Prometheus** scrapes Flask `/metrics` for request counts and latency, and node-exporter for host metrics.
-- **Grafana** visualizes metrics; includes provisioning for datasources.
-- **Alerts** are configured directly in Grafana dashboard panels for errors, latency, or QPS spikes—demonstrating incident response readiness.
-- **Healthchecks** for all core services.
-- **Integration tests** verify monitoring stack and alerting during CI.
+- **Prometheus** scrapes:
+  - Flask metrics (`/metrics`)
+  - Host metrics (node-exporter)
+- **Grafana Dashboards**:
+  - QPS, error rate, latency, method breakdown  
+
+👉 Example panel: ![Grafana dashboard](images/Example_dashboard.png)
 
 ---
 
-## 🛡️ Security Notes
+## 🛡️ Security
 
-- No secrets in Dockerfile → use environment variables / secret managers.
-- Vulnerability scans with Trivy in CI.
-- Run containers as **non‑root**.
-- `.dockerignore` excludes dev/test files, `.git`, `.venv`, etc.
+- Containers run as **non-root** with `no-new-privileges`
+- Images scanned by **Trivy** in CI
+- `.dockerignore` excludes secrets, `.git`, `.venv`
+- Read-only root FS (`read_only: true`) for app container
 
 ---
 
 ## 💾 Backup Automation
 
-A simple `backup.sh` script:
-- Dumps PostgreSQL DB (`pg_dump`)
-- Archives with timestamp (`.gz`)
-- (Can be run via cron or CI job)
-- Backup output is verified in CI pipeline
+`backup.sh` script:
+
+- Runs `pg_dump` with timestamp
+- Produces compressed archive
+- Verified during CI integration tests
 
 ---
 
-## 🎤 Demo Tips (Interview Ready)
+## 🚀 Demo Tips (for Interview)
 
-1. **Elevator pitch:** Shows Docker best practices, Compose orchestration, CI/CD pipeline, monitoring/metrics/alerting, security scan, and automated deploy.
-2. Demo Dockerfile → multi‑stage build, non‑root user, `tini`, healthcheck.
-3. Demo `docker-compose.yml` → orchestrated multi-container setup (app, db, monitoring, volumes).
-4. Demo CI/CD pipeline in Actions → explain each stage, especially integration/monitoring and alerting checks.
-5. Show GHCR package with tags → explain reproducibility/rollback.
-6. Run app locally, curl `/health`.
-7. Demo Prometheus & Grafana dashboards, including alert configuration.
-8. Highlight backup automation and security.
-9. Mention possible next steps.
+- Show `docker-compose.yml`: healthchecks, security opts, volumes.
+- Walk through Dockerfile: multi-stage, tini, non-root, healthcheck.
+- Demo GitHub Actions pipeline.
+- Open Grafana dashboard to show metrics.
+- Show GHCR packages: rollback capability with commit-tagged images.
 
 ---
 
-## 📚 Next Improvements
+## 📚 Next Steps (Future Work)
 
-- Add Slack/Discord notifications to CI/CD pipeline or Grafana alerts.
-- Publish SBOM & sign images (Cosign).
-- Extend deployment target: Kubernetes manifests.
-- Add custom alerting rules and incident response playbooks.
-- Infrastructure as code (Terraform/Ansible) for cloud deployment.
+- IaC with Terraform/Ansible (deploy to cloud)
+- Kubernetes manifests/Helm for orchestration
+- Centralized logging (Loki/ELK)
+- CI/CD notifications to Slack/Discord
+- Image signing (Cosign), SBOM generation
 
 ---
+
+✍️ **Author:** [NailAmber](https://github.com/NailAmber)\
+📦 Images: [GHCR Packages](https://github.com/NailAmber?tab=packages)\
+📌 License: MIT
