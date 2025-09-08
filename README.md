@@ -29,7 +29,7 @@ flowchart TD
     Backup <-- pg_dump --> DB[("PostgreSQL")]
     App --> DB & Prometheus["Prometheus"]
     NodeExporter --> Prometheus
-    Prometheus --> Grafana["Grafana Dashboards + Alerts"]
+    Prometheus --> Grafana["Grafana Dashboards"]
 
 ```
 ---
@@ -116,7 +116,7 @@ GitHub Actions workflow (`.github/workflows/ci-cd.yml`):
 - **Grafana Dashboards**:
   - QPS, error rate, latency, method breakdown  
 
-👉 Example panel: ![Grafana dashboard](images/Example_dashboard.png)
+👉 Example panels: ![Grafana dashboard](images/Example_dashboard.png)
 
 ---
 
