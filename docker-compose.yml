@@ -3,22 +3,23 @@ x-healthcheck-default: &default-healthcheck
   timeout: 5s
   retries: 3
 
-
 services:
   db:
     image: postgres:17
     restart: always
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: testdb
+    env_file: .env
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "user", "-d", "testdb"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
       <<: *default-healthcheck
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
   
   app:
     build:
@@ -28,7 +29,9 @@ services:
     ports:
       - "8081:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+        restart: true
     networks:
       - backend_net
     environment:
@@ -50,12 +53,15 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - app
-      - node-exporter
+      app:
+        condition: service_healthy
+        restart: true
+      node-exporter:
+        condition: service_started
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
       <<: *default-healthcheck
 
   grafana:
@@ -67,11 +73,13 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+        restart: true
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       <<: *default-healthcheck
 
   node-exporter:
