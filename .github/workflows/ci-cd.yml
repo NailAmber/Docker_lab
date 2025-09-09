@@ -44,7 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
+      - name: Create .env file
+        run: |
+          echo "POSTGRES_USER=user
+          POSTGRES_PASSWORD=pass
+          POSTGRES_DB=testdb" >> .env 
+      
       - name: Build and start services with docker-compose
         run: |
           docker compose up --build -d
