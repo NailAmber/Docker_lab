@@ -47,9 +47,9 @@ jobs:
       
       - name: Create .env file
         run: |
-          echo "POSTGRES_USER=user
-          POSTGRES_PASSWORD=pass
-          POSTGRES_DB=testdb" >> .env 
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env 
       
       - name: Build and start services with docker-compose
         run: |
@@ -175,6 +175,12 @@ jobs:
 
       - name: Login to GHCR
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      
+      - name: Create .env file
+        run: |
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
 
       - name: Deploy with Docker Compose
         run: |
