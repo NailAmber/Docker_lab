@@ -61,7 +61,7 @@ services:
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
       <<: *default-healthcheck
 
   grafana:
@@ -85,7 +85,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: always
-    ports:
+    expose:
       - "9100:9100"
     networks:
       - backend_net
