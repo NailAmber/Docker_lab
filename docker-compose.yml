@@ -1,8 +1,3 @@
-x-healthcheck-default: &default-healthcheck
-  interval: 10s
-  timeout: 5s
-  retries: 3
-
 services:
   db:
     image: postgres:17
@@ -14,7 +9,9 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
-      <<: *default-healthcheck
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -36,13 +33,18 @@ services:
       - backend_net
     environment:
       - prometheus_multiproc_dir=/tmp/metrics
+    read_only: true
     tmpfs:
       - /tmp
     volumes:
       - metrics_data:/tmp/metrics
     security_opt:
       - no-new-privileges:true
-    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "256M"
   
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -62,7 +64,14 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
-      <<: *default-healthcheck
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
 
   grafana:
     image: grafana/grafana:12.1
@@ -70,6 +79,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    read_only: true
     ports:
       - "3000:3000"
     depends_on:
@@ -80,15 +90,33 @@ services:
       - backend_net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      <<: *default-healthcheck
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "512M"
 
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: always
     expose:
       - "9100:9100"
+    read_only: true
     networks:
       - backend_net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "128M"
 
 
 volumes:
