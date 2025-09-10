@@ -20,10 +20,11 @@ def test_index(client):
     assert "status" in json_data and json_data["status"] == "ok"
 
 
-def test_healthz(client):
+def test_health(client):
     rv = client.get("/health")
     assert rv.status_code == 200
-    assert rv.get_data(as_text=True) == "ok"
+    json_data = rv.get_json()
+    assert "status" in json_data and json_data["status"] == "ok"
 
 
 def test_metrics(client):

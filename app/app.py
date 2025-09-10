@@ -70,6 +70,7 @@ http_requests_latency = Histogram(
 
 # ----- Middleware -----
 
+
 @app.before_request
 def start_time():
     request.start_time = time.time()
@@ -97,6 +98,7 @@ def record_metrics(response):
 
 # ----- Routes -----
 
+
 @app.route("/", methods=["GET"])
 def index():
     # Work emulation
@@ -122,6 +124,7 @@ def health():
 
 
 # DB related routes
+
 
 @app.route("/add", methods=["POST"])
 def add_message():
@@ -160,11 +163,9 @@ def list_messages():
     try:
         with engine.connect() as conn:
             rows = conn.execute(text("SELECT id, content FROM messages")).fetchall()
-        return jsonify(
-            [{"id": row.id, "content": row.content} for row in rows]
-        )
-    except:
-        return {"status": "no list"}
+        return jsonify([{"id": row.id, "content": row.content} for row in rows])
+    except Exception as e:
+        return {"status": f"can not fetch list: {e}"}
 
 
 if __name__ == "__main__":
@@ -173,5 +174,5 @@ if __name__ == "__main__":
 else:
     try:
         init_db()
-    except:
-        print("Can't connect to database")
+    except Exception as e:
+        print(f"Can't connect to database: {e}")
