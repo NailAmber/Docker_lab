@@ -16,13 +16,14 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: "512M"
+          memory: "1024M"
   
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
     restart: always
+    env_file: .env
     ports:
       - "8081:8000"
     depends_on:
@@ -33,6 +34,7 @@ services:
       - backend_net
     environment:
       - prometheus_multiproc_dir=/tmp/metrics
+      - DATABASE_URL=postgres://$${POSTGRES_USER}:$${POSTGRES_PASSWORD@$${POSTGRES_SERVICE}:5432/$${POSTGRES_DB}
     read_only: true
     tmpfs:
       - /tmp
@@ -79,6 +81,9 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    tmpfs:
+      - /var/log/grafana
+      - /tmp
     read_only: true
     ports:
       - "3000:3000"
@@ -102,7 +107,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.9.1
     restart: always
-    expose:
+    ports:
       - "9100:9100"
     read_only: true
     networks:
