@@ -82,7 +82,8 @@ jobs:
             echo "[$svc] did not become healthy"
             exit 1
           }
-          
+
+          wait_healthy node-exporter 20 3
           wait_healthy db 20 3
           wait_healthy app 20 3
           wait_healthy prometheus 20 3
