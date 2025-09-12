@@ -1,9 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-CONTAINER="${CONTAINER:-docker_lab-db-1}"
-DB_USER="${DB_USER:-user}"
-DB_NAME="${DB_NAME:-testdb}"
+set -a
+source .env
+set +a
+
+CONTAINER="${CONTAINER:-docker_lab-${POSTGRES_SERVICE}-1}"
+DB_USER="${POSTGRES_USER}"
+DB_NAME="${POSTGRES_DB}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 KEEP_COUNT="${KEEP_COUNT:-7}"
 
