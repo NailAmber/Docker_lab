@@ -120,7 +120,7 @@ jobs:
 
       - name: Check deletion of a row from a database table test
         run: |
-          if curl http://localhost:8081/list | grep -q '[]'; then
+          if curl http://localhost:8081/list | grep -q '\[\]'; then
             exit 0
           else
             exit 1
