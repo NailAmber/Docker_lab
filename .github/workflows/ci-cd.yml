@@ -100,6 +100,7 @@ jobs:
             exit 0
           else
             exit 1
+          fi
 
       - name: Get a list of database rows test
         run: |
@@ -107,6 +108,7 @@ jobs:
             exit 0
           else
             exit 1
+          fi
 
       - name: Delete a row from a database table test
         run: |
@@ -114,6 +116,7 @@ jobs:
             exit 0
           else
             exit 1
+          fi
 
       - name: Check deletion of a row from a database table test
         run: |
@@ -121,6 +124,7 @@ jobs:
             exit 0
           else
             exit 1
+          fi
 
       - name: Verify Prometheus scrapes Flask
         run: |
