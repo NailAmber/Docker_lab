@@ -34,12 +34,11 @@ logger = logging.getLogger("app")
 logger.info(
     "Using DATABASE_URL=%s",
     DATABASE_URL.replace(
-        os.getenv("POSTGRES_PASSWORD", ""),
-        "***" if os.getenv("POSTGRES_PASSWORD") else "",
+        POSTGRES_PASSWORD,
+        "***"
     ),
 )
 
-engine = create_engine(DATABASE_URL, echo=True, future=True)
 
 
 # Create table if not exists
@@ -47,6 +46,7 @@ def init_db(retry_seconds=2, max_retries=10):
     tries = 0
     while True:
         try:
+            engine = create_engine(DATABASE_URL, echo=True, future=True)
             with engine.begin() as conn:
                 conn.execute(
                     text(

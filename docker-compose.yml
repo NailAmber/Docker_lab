@@ -1,7 +1,7 @@
 services:
+
   db:
     image: postgres:17
-    restart: always
     env_file: .env
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -12,7 +12,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # for Swarm 
     deploy:
       resources:
         limits:
@@ -23,14 +22,11 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
-    restart: always
     env_file: .env
     ports:
       - "8081:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-        restart: true
+    depends_on: 
+      - db
     networks:
       - backend_net
     environment:
@@ -42,7 +38,6 @@ services:
       - metrics_data:/tmp/metrics
     security_opt:
       - no-new-privileges:true
-    # for Swarm 
     deploy:
       resources:
         limits:
@@ -51,18 +46,14 @@ services:
   
   prometheus:
     image: prom/prometheus:v3.5.0
-    restart: always
     volumes:
       - ./monitoring/prometheus/:/etc/prometheus/:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
     depends_on:
-      app:
-        condition: service_healthy
-        restart: true
-      node-exporter:
-        condition: service_started
+      - app
+      - node-exporter
     networks:
       - backend_net
     healthcheck:
@@ -70,7 +61,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # for Swarm 
     deploy:
       resources:
         limits:
@@ -78,8 +68,7 @@ services:
           memory: "512M"
 
   grafana:
-    image: grafana/grafana:12.1
-    restart: always
+    image: grafana/grafana:12.1.1
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
@@ -90,17 +79,14 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      prometheus:
-        condition: service_healthy
-        restart: true
+      - prometheus
     networks:
       - backend_net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
-      retries: 5
-    # for Swarm 
+      retries: 10
     deploy:
       resources:
         limits:
@@ -109,7 +95,6 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.9.1
-    restart: always
     ports:
       - "9100:9100"
     read_only: true
@@ -120,13 +105,11 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-    # for Swarm 
     deploy:
       resources:
         limits:
           cpus: "0.1"
           memory: "128M"
-
 
 volumes:
   db_data:
