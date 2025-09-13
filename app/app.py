@@ -12,9 +12,12 @@ import time
 import random
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
+import logging
+import sys
 
 app = Flask(__name__)
 
+# load .env from repo root
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # Get db link and create db engine
@@ -24,25 +27,41 @@ POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_SERVICE = os.getenv("POSTGRES_SERVICE")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVICE}:5432/{POSTGRES_DB}"
-print(DATABASE_URL)
+
+logging.basicConfig(stream.sys.stdout, level=logging.INFO)
+logger =  logging.getLogger("app")
+
+logger.info("Using DATABASE_URL=%s", DATABASE_URL.replace(os.getenv("POSTGRES_PASSWORD", ""), "***" if os.getenv("POSTGRES_PASSWORD") else ""))
 
 engine = create_engine(DATABASE_URL, echo=True, future=True)
 
 
 # Create table if not exists
-def init_db():
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-        CREATE TABLE IF NOT EXISTS messages (
-            id SERIAL PRIMARY KEY,
-            content TEXT NOT NULL
+def init_db(retry_seconds=2, max_retries=10):
+    tries = 0
+    while True:
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    content TEXT NOT NULL
 
-        )
-        """
-            )
-        )
+                )
+                """
+                    )
+                )
+            logger.info("Database initialized")
+            break
+        except Exception as e:
+            tries += 1
+            logger.warning("DB init failed (try %d/%d): %s", tries, max_retries, e)
+            if tries >= max_retires:
+                logger.exception("Max retries reached, giving up on DB init")
+                raise
+            time.sleep(retry_seconds)
 
 
 # Create registry for multiprocess
@@ -78,20 +97,24 @@ def start_time():
 
 @app.after_request
 def record_metrics(response):
-    latency = time.time() - request.start_time
+    latency = time.time() - getattr(request, "start_time", time.time())
     endpoint = request.endpoint or "unknown"
     worker_id = os.environ.get("WORKER_ID", "unknown")
+    status_str = str(response.status_code)
 
-    http_requests_total.labels(
-        worker_id=worker_id,
-        method=request.method,
-        endpoint=endpoint,
-        status=response.status_code,
-    ).inc()
+    try:
+        http_requests_total.labels(
+            worker_id=worker_id,
+            method=request.method,
+            endpoint=endpoint,
+            status=status_str
+        ).inc()
 
-    http_requests_latency.labels(
-        worker_id=worker_id, method=request.method, endpoint=endpoint
-    ).observe(latency)
+        http_requests_latency.labels(
+            worker_id=worker_id, method=request.method, endpoint=endpoint
+        ).observe(latency)
+    except Exception as e:
+        logger.exception("Failed to record metrics: %s", e)
 
     return response
 
@@ -125,37 +148,42 @@ def health():
 
 # DB related routes
 
-
 @app.route("/add", methods=["POST"])
 def add_message():
     data = request.json
     content = data.get("content")
+    
     if not content:
-        return {"error": "No content"}, 400
-
-    with engine.begin() as conn:
-        conn.execute(
-            text("INSERT INTO messages (content) VALUES (:content)"),
-            {"content": content},
-        )
-
-    return {"status": "message saved successfully"}
-
+        return {"status": "error", "detail": "No content"}, 400
+    
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO messages (content) VALUES (:content)"),
+                {"content": content},
+            )
+        return {"status": "message saved successfully"}
+    except Exception as e:
+        logger.exception("Failed to add message: %s", e)
+        return {"status": "error", "detail": "Could not to save message"}, 500
 
 @app.route("/delete", methods=["POST"])
 def del_message():
     data = request.json
     content = data.get("content")
     if not content:
-        return {"error": "No content"}, 400
+        return {"status": "error", "detail": "No content"}, 400
 
-    with engine.begin() as conn:
-        conn.execute(
-            text("DELETE FROM messages WHERE content = (:content)"),
-            {"content": content},
-        )
-
-    return {"status": "message deleted successfully"}
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("DELETE FROM messages WHERE content = (:content)"),
+                {"content": content},
+                )
+        return {"status": "ok", "detail": "message deleted successfully"}
+    except Exception as e:
+        logger.exception("Failed to delete message: %s", e)
+        return {"status": "error", "detail": "Could not to delete message"}, 500
 
 
 @app.route("/list", methods=["GET"])
@@ -165,7 +193,8 @@ def list_messages():
             rows = conn.execute(text("SELECT id, content FROM messages")).fetchall()
         return jsonify([{"id": row.id, "content": row.content} for row in rows])
     except Exception as e:
-        return {"status": f"can not fetch list: {e}"}
+        logger.exception("Failed to get list of messages: %s", e)
+        return {"status": "error", "detail": "Could not to get list of messages"}, 500
 
 
 if __name__ == "__main__":
@@ -175,4 +204,5 @@ else:
     try:
         init_db()
     except Exception as e:
-        print(f"Can't connect to database: {e}")
+        logger.warning("Can't connect to database at startup: %s", e)
+
