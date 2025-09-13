@@ -28,10 +28,16 @@ POSTGRES_SERVICE = os.getenv("POSTGRES_SERVICE")
 
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVICE}:5432/{POSTGRES_DB}"
 
-logging.basicConfig(stream.sys.stdout, level=logging.INFO)
-logger =  logging.getLogger("app")
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger = logging.getLogger("app")
 
-logger.info("Using DATABASE_URL=%s", DATABASE_URL.replace(os.getenv("POSTGRES_PASSWORD", ""), "***" if os.getenv("POSTGRES_PASSWORD") else ""))
+logger.info(
+    "Using DATABASE_URL=%s",
+    DATABASE_URL.replace(
+        os.getenv("POSTGRES_PASSWORD", ""),
+        "***" if os.getenv("POSTGRES_PASSWORD") else "",
+    ),
+)
 
 engine = create_engine(DATABASE_URL, echo=True, future=True)
 
@@ -58,7 +64,7 @@ def init_db(retry_seconds=2, max_retries=10):
         except Exception as e:
             tries += 1
             logger.warning("DB init failed (try %d/%d): %s", tries, max_retries, e)
-            if tries >= max_retires:
+            if tries >= max_retries:
                 logger.exception("Max retries reached, giving up on DB init")
                 raise
             time.sleep(retry_seconds)
@@ -107,7 +113,7 @@ def record_metrics(response):
             worker_id=worker_id,
             method=request.method,
             endpoint=endpoint,
-            status=status_str
+            status=status_str,
         ).inc()
 
         http_requests_latency.labels(
@@ -148,14 +154,15 @@ def health():
 
 # DB related routes
 
+
 @app.route("/add", methods=["POST"])
 def add_message():
     data = request.json
     content = data.get("content")
-    
+
     if not content:
         return {"status": "error", "detail": "No content"}, 400
-    
+
     try:
         with engine.begin() as conn:
             conn.execute(
@@ -166,6 +173,7 @@ def add_message():
     except Exception as e:
         logger.exception("Failed to add message: %s", e)
         return {"status": "error", "detail": "Could not to save message"}, 500
+
 
 @app.route("/delete", methods=["POST"])
 def del_message():
@@ -179,7 +187,7 @@ def del_message():
             conn.execute(
                 text("DELETE FROM messages WHERE content = (:content)"),
                 {"content": content},
-                )
+            )
         return {"status": "ok", "detail": "message deleted successfully"}
     except Exception as e:
         logger.exception("Failed to delete message: %s", e)
@@ -205,4 +213,3 @@ else:
         init_db()
     except Exception as e:
         logger.warning("Can't connect to database at startup: %s", e)
-
