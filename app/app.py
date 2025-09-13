@@ -31,22 +31,20 @@ DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERV
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("app")
 
-logger.info(
-    "Using DATABASE_URL=%s",
-    DATABASE_URL.replace(
-        POSTGRES_PASSWORD,
-        "***"
-    ),
-)
-
+if POSTGRES_PASSWORD:
+    logDataBaseURL = DATABASE_URL.replace(POSTGRES_PASSWORD, "***")
+else:
+    logDataBaseURL = DATABASE_URL
+logger.info("Using DATABASE_URL=%s", logDataBaseURL)
 
 
 # Create table if not exists
 def init_db(retry_seconds=2, max_retries=10):
     tries = 0
+    global engine
     while True:
         try:
-            engine = create_engine(DATABASE_URL, echo=True, future=True)
+            engine = create_engine(DATABASE_URL)
             with engine.begin() as conn:
                 conn.execute(
                     text(
