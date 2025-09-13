@@ -12,6 +12,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # for Swarm 
     deploy:
       resources:
         limits:
@@ -23,6 +24,7 @@ services:
       context: ./app
       dockerfile: Dockerfile
     restart: always
+    env_file: .env
     ports:
       - "8081:8000"
     depends_on:
@@ -40,6 +42,7 @@ services:
       - metrics_data:/tmp/metrics
     security_opt:
       - no-new-privileges:true
+    # for Swarm 
     deploy:
       resources:
         limits:
@@ -67,6 +70,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # for Swarm 
     deploy:
       resources:
         limits:
@@ -96,6 +100,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # for Swarm 
     deploy:
       resources:
         limits:
@@ -111,10 +116,11 @@ services:
     networks:
       - backend_net
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/"]
       interval: 30s
       timeout: 5s
       retries: 3
+    # for Swarm 
     deploy:
       resources:
         limits:
